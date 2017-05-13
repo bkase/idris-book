@@ -20,11 +20,9 @@ addToStore (MkData size items) newItem = MkData _ (addToData items)
     addToData [] = [newItem]
     addToData (x :: xs) = x :: addToData xs
 
-searchStore : DataStore -> String -> Maybe (Integer, String)
+searchStore : DataStore -> String -> List (Integer, String)
 searchStore (MkData size items) str =
-  case findIndex (isInfixOf str) items of
-       Nothing => Nothing
-       (Just idx) => Just (finToInteger idx, index idx items)
+  map (\idx => (finToInteger idx, Vect.index idx items)) (findIndices (isInfixOf str) items)
 
 data Command = Add String
              | Get Integer
@@ -50,12 +48,16 @@ getEntry : (pos : Integer) -> (store : DataStore) -> Maybe (String, DataStore)
 getEntry pos store =
       case integerToFin pos (size store) of
             Nothing => Just ("Out of range\n", store)
-            (Just id) => Just (index id (items store) ++ "\n", store)
+            (Just id) => Just (Vect.index id (items store) ++ "\n", store)
+
+serializeSearchResults : (results : List (Integer, String)) -> List String
+serializeSearchResults results = map (\(idx, str) => show idx ++ ": " ++ str) results
 
 performSearch : (str : String) -> (store : DataStore) -> Maybe (String, DataStore)
-performSearch str store = case searchStore store str of
-                               Nothing => Just (str ++ " not found\n", store)
-                               (Just (idx, str)) => Just (show idx ++ ": " ++ str ++ "\n", store)
+performSearch str store = 
+  case searchStore store str of
+       [] => Just (str ++ " not found\n", store)
+       results => Just (Foldable.foldl (\acc => \str => acc ++ str ++ "\n") "" (serializeSearchResults results), store)
 
 processInput : DataStore -> String -> Maybe (String, DataStore)
 processInput store inp = case parse inp of
